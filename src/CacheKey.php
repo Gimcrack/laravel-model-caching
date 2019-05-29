@@ -4,6 +4,7 @@ use GeneaLabs\LaravelModelCaching\Traits\CachePrefixing;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 class CacheKey
 {
@@ -42,10 +43,40 @@ class CacheKey
         $key .= $this->getOrderByClauses();
         $key .= $this->getOffsetClause();
         $key .= $this->getLimitClause();
+        $key .= $this->getModelCount();
+        $key .= $this->getModelMaxPrimaryKey();
         $key .= $keyDifferentiator;
         $key .= $this->macroKey;
 
         return $key;
+    }
+
+    protected function getModelCount()
+    {
+        if ( ! $this->model->cacheKeyUsesModelCount )
+            return "";
+
+        return Cache::remember(
+            $this->getCachePrefix() . $this->getTableSlug() . "_count",
+            $this->model->cacheKeyModelCountTTL ?: 60,
+            function() {
+                return $this->model->disableCache()->count();
+            }
+        );
+    }
+
+    protected function getModelMaxPrimaryKey()
+    {
+        if ( ! $this->model->cacheKeyUsesMaxPrimaryKey )
+            return "";
+
+        return Cache::remember(
+            $this->getCachePrefix() . $this->getTableSlug() . "_max_primary_key",
+            $this->model->cacheKeyMaxPrimaryKeyTTL ?: 60,
+            function() {
+                return $this->model->disableCache()->max( $this->model->getKeyName() );
+            }
+        );
     }
 
     protected function getIdColumn(string $idColumn) : string
